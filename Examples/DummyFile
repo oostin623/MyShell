@@ -1,0 +1,38 @@
+Dup File descriptor is 1
+To Console ?
+1 = ls
+2 = -l
+3 = /
+4 = |
+5 = cat
+6 = DupExecDemo.c
+-rw-r-----  1 austin austin 1314 Mar  5 10:33 DupExecDemo.c
+
+/:
+total 100
+drwxr-xr-x   2 root root  4096 Dec 13 14:01 bin
+drwxr-xr-x   4 root root  4096 Dec 13 14:01 boot
+drwxrwxr-x   2 root root  4096 Sep  4  2014 cdrom
+drwxr-xr-x  17 root root  4340 Apr  2 13:05 dev
+drwxr-xr-x 134 root root 12288 Apr  2 13:05 etc
+-rw-r--r--   1 root root   120 Sep 30  2014 etcsudo
+drwxr-xr-x   4 root root  4096 Jan 27 13:28 home
+lrwxrwxrwx   1 root root    33 Dec 13 14:01 initrd.img -> boot/initrd.img-3.13.0-43-generic
+lrwxrwxrwx   1 root root    33 Nov 25 08:14 initrd.img.old -> boot/initrd.img-3.13.0-40-generic
+drwxr-xr-x  24 root root  4096 Dec 13 13:59 lib
+drwxr-xr-x   2 root root  4096 Dec 13 13:59 lib64
+drwx------   2 root root 16384 Sep  4  2014 lost+found
+drwxr-xr-x   3 root root  4096 Sep  4  2014 media
+drwxr-xr-x   2 root root  4096 Apr 10  2014 mnt
+drwxr-xr-x   5 root root  4096 Jan 27 10:21 opt
+dr-xr-xr-x 233 root root     0 Apr  2 09:05 proc
+drwx------   7 root root  4096 Jan 27 13:19 root
+drwxr-xr-x  25 root root   780 Apr  2 17:47 run
+drwxr-xr-x   2 root root 12288 Dec 13 14:00 sbin
+drwxr-xr-x   2 root root  4096 Jul 22  2014 srv
+dr-xr-xr-x  13 root root     0 Apr  2 09:05 sys
+drwxrwxrwt   8 root root  4096 Apr  2 20:55 tmp
+drwxr-xr-x  10 root root  4096 Jul 22  2014 usr
+drwxr-xr-x  13 root root  4096 Sep 13  2014 var
+lrwxrwxrwx   1 root root    30 Dec 13 14:01 vmlinuz -> boot/vmlinuz-3.13.0-43-generic
+lrwxrwxrwx   1 root root    30 Nov 25 08:14 vmlinuz.old -> boot/vmlinuz-3.13.0-40-generic
