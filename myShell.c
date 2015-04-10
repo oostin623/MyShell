@@ -16,13 +16,19 @@
 
 //TODO: 
 //remove the idiotic triple pointers
+//test redirection and commands like 'grep' 
+//Implement backgrounding '&'
+
+//BUGS:
+//prints weird character instead of command promt after piping
+//
 
 //++++++++++++++++PROTOTYPES
 
 void do_cmd();
 void do_pipe(int nextToken);
 void do_redirect(int tokenIndex);
-
+int makeargv(char * s, char * delimiters, char *** argvp);
 //++++++++++++++++GLOBAL VARS
 
 char*** argv;
@@ -61,17 +67,17 @@ int main()
 			printf("error reading the command line.\n");
 		} else {
 			argc = makeargv(cmdLine,delimiter,argv);
+			if (argc > 0 && (strcmp(cmdLine,exit) != 0)) {	
 
-			//check for change directory
-			tempC = makeargv(*((*argv))," ",&temp);
-			if(strcmp(temp[0],"cd") == 0) {
-				if(chdir(temp[1]) < 0) {
-					printf("error: directory %s not found\n",temp[1]);
-				}
-			}
-			else if (argc > 0 && (strcmp(cmdLine,exit) != 0)) 
-			{		
+				//check for change directory
+				tempC = makeargv(*((*argv))," ",&temp);
+				if(strcmp(temp[0],"cd") == 0) {
+					if(chdir(temp[1]) < 0) {
+						printf("error: directory %s not found\n",temp[1]);
+					}
+				} else {
 				do_cmd();getcwd(dir,t);
+				}
 			}
 		}
 	} while(strcmp(cmdLine,exit) != 0);
@@ -83,25 +89,29 @@ int main()
 
 /*
 * do_cmd allows the shell to proccess a cmd without terminating itself. 
+*
 * Forks:
-* parent - waits for child to finish before displaying pompt (unless & at end of cmd) 
-* child - processes the cmd line using do_pipe
+* 	parent - waits for child to finish before displaying pompt (unless & at end of cmd) 
+* 		child - processes the cmd line using do_pipe
 */
 void do_cmd()
 {
+
 	pid_t pd = fork();
+
 	//parent
 	if(pd != 0) {								
 		char* last = *((*argv) + argc-1);
 		int lastChar = strlen(last) -1;
-		if(last[lastChar] != '&'){
+	//	if(last[lastChar] != '&'){
 		waitpid(pd, NULL, 0);         //waits for the initial child to finish executing before promting again
 		printf("wait successful\n");
-		}
-	//child
-	} else {					
-		do_pipe(0);   //starts recursive child generation
-	}	
+	//	}
+
+			//child
+			} else {					
+				do_pipe(0);   //starts recursive child generation
+			}	
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++___DO_PIPE___+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -124,25 +134,27 @@ void do_pipe(int nextToken)
 	{
 		pipe(fd); 			        //open the pipe                  
 		pd = fork();
-		//child 	
-		if(pd == 0) {                   
-			close(fd[1]);           //closes writing end of pipe in child
-			dup2(fd[0],0);          //redirects the pipe to child's input
-			do_pipe(nextToken+1); //child spawns a child to continue with piping
-		//parent
-		} else {          
+
+		//parent	
+		if(pd != 0) {                   
 			close(fd[0]);           //closes reading end of pipe   
 			dup2(fd[1],1);          //redirects the parent's output to the pipe     
 			do_redirect(nextToken); //executes the parent cmd
-			                                  			                        
-		} 
+
+
+				//child
+				} else {          
+					close(fd[1]);           //closes writing end of pipe in child
+					dup2(fd[0],0);          //redirects the pipe to child's input
+					do_pipe(nextToken+1); //child spawns a child to continue with piping                                  			                        
+				} 
 	}
 	do_redirect(nextToken); //final cmd is executed (child that never becoems a parent)
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++___DO_REDIRECT___++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
-* handles the redirection logic fromt he command line (if applicable)
+* handles the redirection logic from the command line (if applicable)
 * handles execution of processes using execvp
 */
 void do_redirect(int tokenIndex)
