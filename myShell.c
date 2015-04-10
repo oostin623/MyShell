@@ -17,11 +17,6 @@
 //TODO: 
 //remove the idiotic triple pointers
 //test redirection and commands like 'grep' 
-//Implement backgrounding '&'
-
-//BUGS:
-//prints weird character instead of command promt after piping
-//
 
 //++++++++++++++++PROTOTYPES
 
@@ -95,21 +90,24 @@ int main()
 * 		child - processes the cmd line using do_pipe
 */
 void do_cmd()
-{
+{ 
 
 	pid_t pd = fork();
 
-	//parent
-	if(pd != 0) {								
 		char* last = *((*argv) + argc-1);
 		int lastChar = strlen(last) -1;
-	//	if(last[lastChar] != '&'){
+
+	//parent
+	if(pd != 0) {									
+		if(last[lastChar] != '&'){
 		waitpid(pd, NULL, 0);         //waits for the initial child to finish executing before promting again
-		printf("wait successful\n");
-	//	}
+		}
 
 			//child
-			} else {					
+			} else {	
+			if(last[lastChar] == '&'){	
+					last[lastChar] = '\0';
+			}		
 				do_pipe(0);   //starts recursive child generation
 			}	
 }
