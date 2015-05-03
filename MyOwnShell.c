@@ -3,12 +3,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#define RWRWRW (S_IRUSR| S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 /* 
 *  MyShell ... 2240 Assignment #3
 *
 *  SPEICIFICATIONS
 *
 * -process unspecified number of pipes
+* -handle cmd line args for executables, including betwene pipes
 * -handle redirection ('>' and '<')
 * -handle built in cmds cd, kill, exit
 * -handle backgrounding '&'
@@ -16,7 +21,7 @@
 
 //TODO: 
 //remove the idiotic triple pointers
-//test redirection and commands like 'grep' 
+//(shouda read makeargv.c before trying to use it.. writing this code like an idiot using a char*** wasn't fun)
 
 //++++++++++++++++PROTOTYPES
 
@@ -31,7 +36,7 @@ int argc;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++___MAIN___+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
-*	Controller for the thread, contains a loop to wait for a cmd then process it.
+*	Controller for the  shell, contains a loop to wait for a cmd then process it.
 */
 int main() 
 {
@@ -51,32 +56,32 @@ int main()
 	printf("\nshell started. enter your command(s)\n");
 	
 	do {
-		getcwd(dir,t);
+		getcwd(dir,t);  //show current working directory and shell prompt.
 		printf("%s ### ",getcwd(dir,t));
-		Nchars = getline(&cmdLine, &size, stdin);
-		//trim off the newline
-		if(cmdLine[Nchars - 1] =='\n') {
+		
+		Nchars = getline(&cmdLine, &size, stdin);  //trim off the newline
+		if(cmdLine[Nchars - 1] =='\n') {	
 			cmdLine[Nchars - 1] = '\0';
 		}
 		if (Nchars == -1) {
-			printf("error reading the command line.\n");
+			printf("ERROR: problem reading the command line.\n");
 		} else {
-			argc = makeargv(cmdLine,delimiter,argv);
-			if (argc > 0 && (strcmp(cmdLine,exit) != 0)) {	
-
-				//check for change directory
-				tempC = makeargv(*((*argv))," ",&temp);
+			argc = makeargv(cmdLine,delimiter,argv);  //split the cmd line into pipe tokens
+			if (argc > 0 && (strcmp(cmdLine,exit) != 0)) {				
+				tempC = makeargv(*((*argv))," ",&temp);  //check for cd
 				if(strcmp(temp[0],"cd") == 0) {
 					if(chdir(temp[1]) < 0) {
-						printf("error: directory %s not found\n",temp[1]);
+						printf("ERROR: directory %s not found\n",temp[1]);
 					}
 				} else {
-				do_cmd();getcwd(dir,t);
+				do_cmd();  //process the cmd line if no special case "exit" or "cd" found
+				getcwd(dir,t);
 				}
 			}
 		}
 	} while(strcmp(cmdLine,exit) != 0);
 	
+	//if "exit" is the cmd, main loop ends, shell terminates
 	return 0;
 }
 
@@ -115,8 +120,9 @@ void do_cmd()
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++___DO_PIPE___+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 /*
-* do_pipe recursivly processess the command line, creating a child for each token in argv[] 
-* an additional process beyond the 1st child is created for each pipe
+* do_pipe recursively processess the command line, creating a child for each token in argv[] 
+* an additional child is created for each pipe
+*
 * a pipe is created before the fork, then the parnet always closes reading while the child closes writing
 * 3 cases: 1st pipe, middle pipe, last pipe
 * 1st pipe will always execute first and have 1 pipe, closing its reading end.
@@ -153,39 +159,76 @@ void do_pipe(int nextToken)
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++___DO_REDIRECT___++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /*
 * handles the redirection logic from the command line (if applicable)
+* handles cmd line args 
 * handles execution of processes using execvp
 */
 void do_redirect(int tokenIndex)
 {	
-	char*** tokens;
+	char** tokens;
 	tokens = malloc(sizeof(char*));
 	char* rSymbol;
 	char* cmd;
-	cmd = *((*argv) + tokenIndex);
+	int rfd;
 	int tokenCount;
-	tokenCount = makeargv(cmd, " ", tokens);
-	rSymbol = *((*tokens+1));
-	*((*tokens)+argc) = NULL;      //add a null to the end of the cmd array so execvp works
-
-
+	cmd = *((*argv) + tokenIndex); //set cmd to current pipe token
+	tokenCount = makeargv(cmd, " ", &tokens);
+	
+	rSymbol = tokens[1]; //set rSymbol to where redirect token would be
+	tokens[tokenCount] = NULL; //add a null to the end of the cmd array so execvp works
 
 	if(rSymbol != NULL){ //possibility of redirection
+
+		//1st case: < redirection
+
 		if(strcmp(rSymbol,"<") == 0) {
-			//open file named redirArg[0]
-			//set input of current process to that file
-			//exec into  redirArgs[2]
-		} else if (strcmp(rSymbol,">") == 0) {
-			//open file named redirArgs[2]
-			//set output of current process to that file
-			//exec into redirArgs[0]
-		}
-		}else { //no redirecting, safe to just exec
-			if(execvp(**tokens, *tokens) == -1) {
-				printf("execvp error! could not execute %s\n",cmd);
+			if((rfd = open(tokens[2],O_RDONLY)) < 0)  {
+				printf("ERROR: file %s could not be opened for < redirection\n",tokens[2]);
+				exit(0);
 			}
+			if(dup2(rfd,0) < 0) {
+				printf("ERROR: dup2() failed for < redirection\n.");
+				exit(0);
+			}           				
+			tokens[1] = NULL;  //remove < so execvp works right
+			if((execvp(*tokens, tokens)) < 0) {
+				printf("ERROR: execvp() error for < redirection\n");
+				exit(0);
+			}
+
+		//2nd case: > redirection
+
+		} else if (strcmp(rSymbol,">") == 0) {
+			if((rfd = open(tokens[2],O_WRONLY|O_TRUNC|O_CREAT,RWRWRW)) < 0)  {
+				printf("ERROR: file %s could not be created for > redirection\n",tokens[2]);
+				exit(0);
+			}
+			if(dup2(rfd,1) < 0) {
+				printf("ERROR: dup2() failed for > redirection\n.");
+				exit(0);
+			}  
+			tokens[1] = NULL;  //remove > so execvp works right
+			if((execvp(*tokens, tokens)) < 0) {
+				printf("ERROR: execvp() error for > redirection\n");
+				exit(0);
+			}
+
+		} else if (tokenIndex == 0){ //only the first pipe token can take cmd line args.. if 1st token and no redir, must be cmd line args
+			if(execvp(*tokens, tokens) == -1) {
+				printf("ERROR: execvp() could not execute %s\n",cmd);
+				exit(0);
+			}
+		}
+	}else { //no redirecting, safe to just exec
+		if(execvp(*tokens, tokens) == -1) {
+			printf("ERROR: execvp() could not execute %s\n",cmd);
+			exit(0);
+		}
 	}
 }
+
+
 //+++++++++++++++++++++++++++++++++++++++++++___BELOW CODE PROVIDED COURTESY OF DR. TRENARY___++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 // makeargv.c 
 // takes a null terminated string s, and a string of delimiters and returns 
 // an array of char * pointers, leaving argvp pointing to that array.
